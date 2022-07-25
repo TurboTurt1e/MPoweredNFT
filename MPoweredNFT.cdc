@@ -10,8 +10,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
     pub var totalSupply: UInt64
     pub var name: String
     pub var description: String
-	pub var price: UFix64
-    pub var image: MetadataViews.IPFSFile
+	pub var image: MetadataViews.IPFSFile
     access(account) var maxNumEditions: UInt16
     pub var publicMinting: Bool
     pub var nextLimitedEdition: UInt16
@@ -99,7 +98,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 		pub let metadatas: {UInt64: NFTMetadata}
 		pub let setDatas: {UInt64: SetData}
 		pub let maxNumEditions: UInt16
-		pub let price: UFix64
+		
 
 		init() {
 			self.name = MPoweredNFT.name
@@ -112,7 +111,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 			self.metadatas = MPoweredNFT.getNFTMetadatas()
 			self.setDatas = MPoweredNFT.getSetDatas()
 			self.maxNumEditions = MPoweredNFT.maxNumEditions
-			self.price = MPoweredNFT.price
+			
 
 		}
 	}
@@ -534,7 +533,6 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 		description: String, 
 		imagePath: String, 
 		publicMinting: Bool, 
-		price: UFix64,
 		ipfsCID: String) 
 	{
 		self.totalSupply = 0
@@ -561,7 +559,6 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 
 		// Initialize default info
 		self.publicMinting = publicMinting
-		self.price = price
 		
 		self.dateCreated = getCurrentBlock().timestamp
 
