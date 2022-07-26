@@ -360,6 +360,22 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
             self.ownedNFTs <- {}
         }
 
+		pub fun getTokenData(id: UInt64): NFTMetadata {
+            pre {
+                self.ownedNFTs[id] != nil : "NFT does not exist in the collection"
+            }
+            let token = self.borrowMpoweredNFT(id: id)
+            return token.getData()
+        }
+
+        pub fun getAllTokenData(): [NFTMetadata] {
+            var tokens: [NFTMetadata] = []
+            for key in self.ownedNFTs.keys {
+                tokens.append(self.getTokenData(id: key))
+            }
+            return tokens
+        }
+        
         pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
 	    pre {
                 self.ownedNFTs[withdrawID] != nil : "NFT does not exist in the collection"
