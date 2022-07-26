@@ -146,6 +146,11 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 
         init(id: UInt64, name: String, description: String, creator: Address, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, limitedEdition: UInt16, edition: UInt16, editionSize: UInt16, royalties: [LicensedNFT.Royalty]) 
 		{
+		
+		pre {
+				MPoweredNFT.metadatas[id] == nil: "This NFT id already exists yet."
+			}
+
 			self.id = id
 			self.name = name
 			self.description = description
@@ -158,8 +163,10 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 			self.edition = edition
 			self.editionSize = editionSize
 			self.licensedRoyalties = royalties
+			//convert royalties to metadata royalties standard
+			//metadataViewsRoyalties = MetadataViews.Royalty()
+			MPoweredNFT.totalSupply = MPoweredNFT.totalSupply + 1
         }
-
 
         pub fun getUnlockableContent(): String {
             return self.unlockableContent
@@ -393,8 +400,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 			
         let token <- create NFT (id: MPoweredNFT.totalSupply, name: name, description: description, creator: ownerAddress, image: image, unlockableContent: unlockableContent, setId: setId, metadata: metadata, limitedEdition: MPoweredNFT.nextLimitedEdition, edition: UInt16(1), editionSize: UInt16(1), royalties: royalties)
 
-        MPoweredNFT.totalSupply = MPoweredNFT.totalSupply + UInt64(1)
-	    MPoweredNFT.limitedEdition = MPoweredNFT.limitedEdition + UInt64(1)
+        MPoweredNFT.limitedEdition = MPoweredNFT.limitedEdition + UInt64(1)
         let tokenRef = &token as &NonFungibleToken.NFT
         emit Mint(id: token.id, creator: ownerAddress, metadata: metadata, royalties: royalties)
         recipient.borrow()!.deposit(token: <- token)
@@ -417,7 +423,6 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 		while a <= editionSize {
 			var newNFT <- create NFT (id: MPoweredNFT.totalSupply, name: name, description: description, creator: creatorAddress, image: image, unlockableContent: unlockableContent, setId: setId, metadata: metadata, limitedEdition: MPoweredNFT.nextLimitedEdition, edition: a, editionSize: editionSize, royalties: royalties)
 			recipient.deposit(token: <-newNFT)
-			MPoweredNFT.totalSupply = MPoweredNFT.totalSupply + UInt64(1)
 			a = a + 1
 		}
 		MPoweredNFT.limitedEdition = MPoweredNFT.limitedEdition + UInt64(1)
@@ -563,7 +568,6 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 		self.dateCreated = getCurrentBlock().timestamp
 
 		self.nextMetadataId = 0
-		self.totalSupply = 0
 		self.metadatas = {}
 		self.setDatas = {}
 		
