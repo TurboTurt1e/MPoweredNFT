@@ -10,7 +10,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
     pub var totalSupply: UInt64
     pub var name: String
     pub var description: String
-	pub var image: MetadataViews.IPFSFile
+    pub var image: MetadataViews.IPFSFile
     access(account) var maxNumEditions: UInt16
     pub var publicMinting: Bool
     pub var nextLimitedEdition: UInt16
@@ -63,23 +63,23 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 
 	init(name: String, description: String, image: String, creator: Address, limitedEditiondition: UInt64, edition: UInt16, editionSize: UInt16, metadata: String) {
 
-        self.id = nextMetadataId
-        self.name = name
-        self.description = description
-        self.creator = creatorAddress
+        	self.id = nextMetadataId
+        	self.name = name
+        	self.description = description
+        	self.creator = creatorAddress
 
-        assert(image.length > 0, message: "NFT must contain an IPFS hash string")
-        //self.image = image
-	self.image = MetadataViews.IPFSFile(
+        	assert(image.length > 0, message: "NFT must contain an IPFS hash string")
+        	//self.image = image
+		self.image = MetadataViews.IPFSFile(
 			cid: MPoweredNFT.ipfsCID,
 			path: image
 		)
 
-        self.limitedEdition = limitedEdition
-	self.edition = edition
-        self.editionSize = editionSize
-	self.metadata = metadata
-	MPoweredNFT.nextMetadataId = MPoweredNFT.nextMetadataId + 1
+        	self.limitedEdition = limitedEdition
+		self.edition = edition
+        	self.editionSize = editionSize
+		self.metadata = metadata
+		MPoweredNFT.nextMetadataId = MPoweredNFT.nextMetadataId + 1
       }
     }
 
@@ -318,8 +318,8 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
         // Creator of the Set
         pub let creator: Address
 		
-		// Is the set locked
-		pub var locked: Bool
+	// Is the set locked
+	pub var locked: Bool
 
         // Series that this Set belongs to
         //pub let series: UInt32
@@ -384,7 +384,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
     pub fun deposit(token: @NonFungibleToken.NFT) {
 	    pre
 	    {
-			self.owner?.address != nil : "deposit function Error - Owner address is nil."
+		self.owner?.address != nil : "deposit function Error - Owner address is nil."
 	    }
             let token <- token as! @MPoweredNFT.NFT
             let id: UInt64 = token.id
@@ -469,7 +469,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 	}
 	
     pub resource Minter {
-		//standardize the minting parameters
+	//standardize the minting parameters
         pub fun mintSingle(recipient: Capability<&{NonFungibleToken.Receiver}>, metadata: {String:String}, royalties: [LicensedNFT.Royalty]): &NonFungibleToken.NFT {
 	    pre {
 			self.publicMinting: "Minting is currently closed by the Administrator!"
@@ -516,18 +516,18 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 		
 	// Create a new Set and store it in the setDatas mapping in the contract
         pub fun createSet(name: String, description: String?) {
-			pre 
-			{
-				//check that the set name does not exist yet
-				MPoweredNFT.setNameExists(name) == false : "Error - Set name already exists"
-			}
-		
-			let ownerAddress = self.owner!.address
-		
-			MPoweredNFT.setDatas[self.setId] = SetData(name: name, description: description, creator: ownerAddress)
+		pre 
+		{
+			//check that the set name does not exist yet
+			MPoweredNFT.setNameExists(name) == false : "Error - Set name already exists"
 		}
+		
+		let ownerAddress = self.owner!.address
+		
+		MPoweredNFT.setDatas[self.setId] = SetData(name: name, description: description, creator: ownerAddress)
+	}
 
-		// Lock the set inside set mapping in the contract
+	// Lock the set inside set mapping in the contract
         pub fun lockSet(setId: UInt64) {
 		
 		pre {
@@ -541,9 +541,9 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 		// you can only lock sets that you created
 		assert(ownerAddress == MPoweredNFT.setDatas[setId].values.creator, message: "Error - This is not your Set. You cannot lock this Set.")
 
-        MPoweredNFT.setDatas[setId].values.locked = true
+        	MPoweredNFT.setDatas[setId].values.locked = true
 
-		}
+	}
 					
     }
 
@@ -619,11 +619,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 		}
 	}
 	
-	init(name: String, 
-		description: String, 
-		imagePath: String, 
-		publicMinting: Bool, 
-		ipfsCID: String) 
+	init(name: String, description: String, imagePath: String, publicMinting: Bool, ipfsCID: String) 
 	{
 		self.totalSupply = 0
 		self.name = name
