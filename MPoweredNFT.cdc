@@ -470,7 +470,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 	
     pub resource Minter {
 	//standardize the minting parameters
-        pub fun mintSingle(recipient: Capability<&{NonFungibleToken.Receiver}>, metadata: {String:String}, royalties: [LicensedNFT.Royalty]): &NonFungibleToken.NFT {
+        pub fun mintSingle(recipient: Capability<&{NonFungibleToken.Receiver}>, name: String, description: String, image: String, unlockableContent: String, setId: UInt64, metadata: {String:String}, royalties: [LicensedNFT.Royalty]): &NonFungibleToken.NFT {
 	    pre {
 			self.publicMinting: "Minting is currently closed by the Administrator!"
 			//check that the set being assigned was created by the minter 
