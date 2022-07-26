@@ -147,7 +147,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
         init(id: UInt64, name: String, description: String, creator: Address, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, limitedEdition: UInt16, edition: UInt16, editionSize: UInt16, royalties: [LicensedNFT.Royalty]) 
 		{
 		
-		pre {
+			pre {
 				MPoweredNFT.metadatas[id] == nil: "This NFT id already exists yet."
 			}
 
@@ -179,6 +179,101 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
         pub fun getRoyalties(): [LicensedNFT.Royalty] {
             return self.licensedRoyalties
         }
+
+		pub fun getMetadata(): NFTMetadata {
+			return MPoweredNFT.getNFTMetadata(self.id)!
+		}
+
+		pub fun getViews(): [Type] {
+			return [
+				Type<MetadataViews.Display>(),
+				Type<MetadataViews.Editions>(),
+				Type<MetadataViews.ExternalURL>(),
+				Type<MetadataViews.NFTCollectionData>(),
+				Type<MetadataViews.NFTCollectionDisplay>(),
+				Type<MetadataViews.Royalties>(),
+				Type<MetadataViews.Serial>(),
+				Type<MetadataViews.Traits>(),
+				Type<MetadataViews.NFTView>()
+			]
+		}
+		
+		pub fun resolveView(_ view: Type): AnyStruct? {
+			switch view {
+				case Type<MetadataViews.Display>():
+					let metadata = self.getMetadata()
+					return MetadataViews.Display(
+						name: metadata.name,
+						description: metadata.description,
+						thumbnail: metadata.thumbnail
+					)
+				case Type<MetadataViews.NFTCollectionData>():
+					return MetadataViews.NFTCollectionData(
+						storagePath: MPoweredNFT.CollectionStoragePath,
+						publicPath: MPoweredNFT.CollectionPublicPath,
+						providerPath: MPoweredNFT.CollectionPrivatePath,
+						publicCollection: Type<&Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+						publicLinkedType: Type<&Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+						providerLinkedType: Type<&Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, NonFungibleToken.Provider}>(),
+						createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+								return <- MPoweredNFT.createEmptyCollection()
+						})
+					)
+				case Type<MetadataViews.ExternalURL>():
+					return MetadataViews.ExternalURL("https://mpowered.nft/".concat((self.owner!.address as Address).toString()).concat("/MPoweredNFT"))
+				case Type<MetadataViews.Editions>():
+					// the edition number is set to self.edition
+                    // the max edition field value is set to self.editionSize
+                    let editionInfo = MetadataViews.Edition(name: self.name, number: self.edition, max: self.editionSize)
+                    let editionList: [MetadataViews.Edition] = [editionInfo]
+                    return MetadataViews.Editions(
+                        editionList
+                    )
+				case Type<MetadataViews.NFTCollectionDisplay>():
+					let media = MetadataViews.Media(
+						file: MPoweredNFT.image,
+						mediaType: "image"
+					)
+					return MetadataViews.NFTCollectionDisplay(
+						name: MPoweredNFT.name,
+						description: MPoweredNFT.description,
+						externalURL: MetadataViews.ExternalURL("https://mpowered.nft/".concat((self.owner!.address as Address).toString()).concat("/MPoweredNFT")),
+						squareImage: media,
+						bannerImage: media,
+						socials: {
+							"twitter": MetadataViews.ExternalURL("https://twitter.com/mpowerednft"),
+							"discord": MetadataViews.ExternalURL("https://discord.gg/mpowerednft")
+						}
+					)
+				case Type<MetadataViews.Royalties>():
+					return MetadataViews.Royalties([
+						MetadataViews.Royalty(
+							recepient: getAccount(MPoweredNFTAccount).getCapability<&FlowToken.Vault{FungibleToken.Receiver}>(/public/flowTokenReceiver),
+							cut: 0.025, // 2.5% royalty on secondary sales
+							description: "MPoweredNFT royalty"
+						)
+					])
+				case Type<MetadataViews.Serial>():
+					return MetadataViews.Serial(
+						self.id
+					)
+				case Type<MetadataViews.Traits>():
+					return MetadataViews.dictToTraits(dict: self.getMetadata().extra, excludedNames: nil)
+				case Type<MetadataViews.NFTView>():
+					return MetadataViews.NFTView(
+						id: self.id,
+            uuid: self.uuid,
+            display: self.resolveView(Type<MetadataViews.Display>()) as! MetadataViews.Display?,
+            externalURL: self.resolveView(Type<MetadataViews.ExternalURL>()) as! MetadataViews.ExternalURL?,
+            collectionData: self.resolveView(Type<MetadataViews.NFTCollectionData>()) as! MetadataViews.NFTCollectionData?,
+            collectionDisplay: self.resolveView(Type<MetadataViews.NFTCollectionDisplay>()) as! MetadataViews.NFTCollectionDisplay?,
+            royalties: self.resolveView(Type<MetadataViews.Royalties>()) as! MetadataViews.Royalties?,
+            traits: self.resolveView(Type<MetadataViews.Traits>()) as! MetadataViews.Traits?
+					)
+			}
+			return nil
+		}
+
 
         destroy() {
             emit Destroy(id: self.id)
