@@ -1,6 +1,6 @@
-import NonFungibleToken from "core/NonFungibleToken.cdc"
-import LicensedNFT from "LicensedNFT.cdc"
-import MetadataViews from "./MetadataViews.cdc"
+import NonFungibleToken from 0x02
+import LicensedNFT from 0x03
+import MetadataViews from 0x04
 
 // MPoweredNFT contract
 //
@@ -61,17 +61,18 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 	pub var metadata: {String: AnyStruct}
 		
 
-	init(name: String, description: String, image: String, creator: Address, limitedEditiondition: UInt64, edition: UInt16, editionSize: UInt16, metadata: String) {
+	init(name: String, description: String, creatorAddress: Address, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, limitedEditiondition: UInt64, edition: UInt16, editionSize: UInt16, ) {
 
-        	self.id = nextMetadataId
+        	self.id = MPoweredNFT.nextMetadataId
         	self.name = name
         	self.description = description
         	self.creator = creatorAddress
+			self.setId = setId 
 
         	assert(image.length > 0, message: "NFT must contain an IPFS hash string")
         	//self.image = image
 		self.image = MetadataViews.IPFSFile(
-			cid: MPoweredNFT.ipfsCID,
+			cid: MPoweredNFT.ipfsCID!,
 			path: image
 		)
 
@@ -104,7 +105,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 		self.dateCreated = MPoweredNFT.dateCreated
 		self.totalSupply = MPoweredNFT.totalSupply
 		self.ipfsCID = MPoweredNFT.ipfsCID
-		self.publicMinting = MPoweredNFT.minting
+		self.publicMinting = MPoweredNFT.publicMinting
 		self.metadatas = MPoweredNFT.getNFTMetadatas()
 		self.setDatas = MPoweredNFT.getSetDatas()
 		self.maxNumEditions = MPoweredNFT.maxNumEditions	
@@ -116,10 +117,10 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
     // Publically available data and functions for the NFT
     pub resource interface MPoweredNFTPublic {
         pub let id: UInt64
-        pub fun getMetadata(): MPoweredNFTData
+        pub fun getMetadata(): NFTMetadata
     }
 
-    pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver, MPoweredNFTPublic, LicensedNFT.NFT {
+    pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver, MPoweredNFTPublic  {
     	pub let id: UInt64
 	pub let name: String
     	pub let description: String
@@ -278,15 +279,15 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
         // Get list of ids for all NFTs in the collection
         pub fun getIDs(): [UInt64]
         // Get metadata for a specific NFT
-        pub fun getTokenData(id: UInt64): MPoweredNFTData {
+        pub fun getTokenData(id: UInt64): NFTMetadata {
 			// If the result isn't nil, the id of the returned reference
         	// should be the same as the argument to the function
         	post {
-        	        (result == nil) || (result.nftId == id):
+        	        (result == nil) || (result.id == id):
                 	    "Cannot get token data: The ID of the returned reference is incorrect"
              	}
         }
-        pub fun getAllTokenData(): [MPoweredNFTData]
+        pub fun getAllTokenData(): [NFTMetadata]
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
         // Function that returns reference to the whole public facing MPoweredNFT Resource
         pub fun borrowMPoweredNFT(id: UInt64): &MPoweredNFT.NFT {
@@ -472,11 +473,11 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 	//standardize the minting parameters
         pub fun mintSingle(recipient: Capability<&{NonFungibleToken.Receiver}>, name: String, description: String, image: String, unlockableContent: String, setId: UInt64, metadata: {String:String}, royalties: [LicensedNFT.Royalty]): &NonFungibleToken.NFT {
 	    pre {
-			self.publicMinting: "Minting is currently closed by the Administrator!"
+			MPoweredNFT.publicMinting: "Minting is currently closed by the Administrator!"
 			//check that the set being assigned was created by the minter 
 			recipient != nil : "Must have a valid capability available in order to mint"
 	    }
-	    let recipientAddress = recipient.owner!.address
+	    //let recipientAddress = recipient.owner!.address
 		let ownerAddress = self.owner!.address
 
     	// you can only mint for sets that you created
@@ -485,7 +486,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 			
         let token <- create NFT (id: MPoweredNFT.totalSupply, name: name, description: description, creator: ownerAddress, image: image, unlockableContent: unlockableContent, setId: setId, metadata: metadata, limitedEdition: MPoweredNFT.nextLimitedEdition, edition: UInt16(1), editionSize: UInt16(1), royalties: royalties)
 
-        MPoweredNFT.limitedEdition = MPoweredNFT.limitedEdition + UInt64(1)
+        MPoweredNFT.nextLimitedEdition = MPoweredNFT.nextLimitedEdition + 1
         let tokenRef = &token as &NonFungibleToken.NFT
         emit Mint(id: token.id, creator: ownerAddress, metadata: metadata, royalties: royalties)
         recipient.borrow()!.deposit(token: <- token)
@@ -496,7 +497,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 	// which will mint multiple NFTs with the same metadata and increasing serial numbers
 	pub fun mintEditions(recipient: &MPoweredNFT.Collection{MPoweredNFTCollectionPublic}, name: String, description: String, image: String, unlockableContent: String, setId: UInt64, metadata: metadata, editionSize: UInt16, royalties: [LicensedNFT.Royalty]) {
 		pre {
-			self.publicMinting: "Minting is currently closed by the Administrator!"
+			MPoweredNFT.publicMinting: "Minting is currently closed by the Administrator!"
 			editionSize <= MPoweredNFT.maxNumEditions : "Error Unable to mint that many NFTs... cannot mint more than maxNumEditions"
 			recipient != nil : "Must have a valid MPoweredNFT Collection available in order to mint"
 		}
@@ -550,7 +551,8 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
     pub fun setNameExists(name: String) : Bool
     {
 	//check that the set name exists yet
-	Bool found = false
+	var found : Bool
+	found = false
 		
 	for setData in MPoweredNFT.setDatas.values {
 		if name == setData.name {
