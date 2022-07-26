@@ -2,7 +2,7 @@ import NonFungibleToken from "core/NonFungibleToken.cdc"
 import LicensedNFT from "LicensedNFT.cdc"
 import MetadataViews from "./MetadataViews.cdc"
 
-// MPoweredNFT token contract
+// MPoweredNFT contract
 //
 pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 
