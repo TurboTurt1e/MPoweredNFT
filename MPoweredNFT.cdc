@@ -15,25 +15,24 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
     pub var publicMinting: Bool
     pub var nextLimitedEdition: UInt16
     pub var nextSetId: UInt64
-	pub var nextMetadataId: UInt64
+    pub var nextMetadataId: UInt64
     //pub var nextSeriesId: UInt32
     pub let ipfsCID: String?
-	pub let dateCreated: UFix64
+    pub let dateCreated: UFix64
 	
     // dictionary of SetData structs
     access(self) var setDatas: {UInt64: SetData}
     // dictionary of metadata structs	
-	access(account) let metadatas: {UInt64: NFTMetadata}
+    access(account) let metadatas: {UInt64: NFTMetadata}
 
-	
-	// Paths
+    // Paths
     pub let collectionPublicPath: PublicPath
     pub let collectionStoragePath: StoragePath
     pub let minterPublicPath: PublicPath
     pub let minterStoragePath: StoragePath
     pub let administratorStoragePath: StoragePath
 	
-	// Events
+    // Events
     pub event ContractInitialized()
     pub event Withdraw(id: UInt64, from: Address?)
     pub event Deposit(id: UInt64, to: Address?)
@@ -71,73 +70,67 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 
         assert(image.length > 0, message: "NFT must contain an IPFS hash string")
         //self.image = image
-		self.image = MetadataViews.IPFSFile(
-				cid: MPoweredNFT.ipfsCID,
-				path: image
-			)
-
+	self.image = MetadataViews.IPFSFile(
+			cid: MPoweredNFT.ipfsCID,
+			path: image
+		)
 
         self.limitedEdition = limitedEdition
-		self.edition = edition
+	self.edition = edition
         self.editionSize = editionSize
-		self.metadata = metadata
-		MPoweredNFT.nextMetadataId = MPoweredNFT.nextMetadataId + 1
+	self.metadata = metadata
+	MPoweredNFT.nextMetadataId = MPoweredNFT.nextMetadataId + 1
       }
     }
 
-	//
-	
-	pub struct CollectionInfo {
-		pub let name: String
-		pub let description: String
-		pub let image: MetadataViews.IPFSFile
-		pub let dateCreated: UFix64
-		pub let totalSupply: UInt64
-		pub let ipfsCID: String?
-		pub let publicMinting: Bool
-		pub let metadatas: {UInt64: NFTMetadata}
-		pub let setDatas: {UInt64: SetData}
-		pub let maxNumEditions: UInt16
+    //	
+    pub struct CollectionInfo {
+	pub let name: String
+	pub let description: String
+	pub let image: MetadataViews.IPFSFile
+	pub let dateCreated: UFix64
+	pub let totalSupply: UInt64
+	pub let ipfsCID: String?
+	pub let publicMinting: Bool
+	pub let metadatas: {UInt64: NFTMetadata}
+	pub let setDatas: {UInt64: SetData}
+	pub let maxNumEditions: UInt16
 		
-
-		init() {
-			self.name = MPoweredNFT.name
-			self.description = MPoweredNFT.description
-			self.image = MPoweredNFT.image
-			self.dateCreated = MPoweredNFT.dateCreated
-			self.totalSupply = MPoweredNFT.totalSupply
-			self.ipfsCID = MPoweredNFT.ipfsCID
-			self.publicMinting = MPoweredNFT.minting
-			self.metadatas = MPoweredNFT.getNFTMetadatas()
-			self.setDatas = MPoweredNFT.getSetDatas()
-			self.maxNumEditions = MPoweredNFT.maxNumEditions
-			
-
-		}
+	init() 
+	{
+		self.name = MPoweredNFT.name
+		self.description = MPoweredNFT.description
+		self.image = MPoweredNFT.image
+		self.dateCreated = MPoweredNFT.dateCreated
+		self.totalSupply = MPoweredNFT.totalSupply
+		self.ipfsCID = MPoweredNFT.ipfsCID
+		self.publicMinting = MPoweredNFT.minting
+		self.metadatas = MPoweredNFT.getNFTMetadatas()
+		self.setDatas = MPoweredNFT.getSetDatas()
+		self.maxNumEditions = MPoweredNFT.maxNumEditions	
 	}
+    }
 	
-	//
-
+    //
 
     // Publically available data and functions for the NFT
     pub resource interface MPoweredNFTPublic {
-
         pub let id: UInt64
         pub fun getMetadata(): MPoweredNFTData
     }
 
     pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver, MPoweredNFTPublic, LicensedNFT.NFT {
     	pub let id: UInt64
-		pub let name: String
+	pub let name: String
     	pub let description: String
         pub let creator: Address
-		pub let image: String
-		pub let limitedEdition: UInt64
-		pub let edition: UInt16
-		pub let editionSize: UInt16
-		pub let setId: UInt64
+	pub let image: String
+	pub let limitedEdition: UInt64
+	pub let edition: UInt16
+	pub let editionSize: UInt16
+	pub let setId: UInt64
 		
-		access(self) let unlockableContent: String
+	access(self) let unlockableContent: String
         // access(self) let metadata: {String:String}
         access(self) let licensedRoyalties: [LicensedNFT.Royalty]
 
@@ -145,27 +138,26 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
         access(self) let metadata: {String: AnyStruct}
 
         init(id: UInt64, name: String, description: String, creator: Address, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, limitedEdition: UInt16, edition: UInt16, editionSize: UInt16, royalties: [LicensedNFT.Royalty]) 
-		{
-		
-			pre {
-				MPoweredNFT.metadatas[id] == nil: "This NFT id already exists yet."
-			}
+	{		
+		pre {
+			MPoweredNFT.metadatas[id] == nil: "This NFT id already exists yet."
+		}
 
-			self.id = id
-			self.name = name
-			self.description = description
-			self.creator = creator
-			self.image = image
-			self.unlockableContent = unlockableContent
-			self.setId = setId
-			self.metadata = metadata
-			self.limitedEdition = UInt16
-			self.edition = edition
-			self.editionSize = editionSize
-			self.licensedRoyalties = royalties
-			//convert royalties to metadata royalties standard
-			//metadataViewsRoyalties = MetadataViews.Royalty()
-			MPoweredNFT.totalSupply = MPoweredNFT.totalSupply + 1
+		self.id = id
+		self.name = name
+		self.description = description
+		self.creator = creator
+		self.image = image
+		self.unlockableContent = unlockableContent
+		self.setId = setId
+		self.metadata = metadata
+		self.limitedEdition = UInt16
+		self.edition = edition
+		self.editionSize = editionSize
+		self.licensedRoyalties = royalties
+		//convert royalties to metadata royalties standard
+		//metadataViewsRoyalties = MetadataViews.Royalty()
+		MPoweredNFT.totalSupply = MPoweredNFT.totalSupply + 1
         }
 
         pub fun getUnlockableContent(): String {
@@ -180,26 +172,26 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
             return self.licensedRoyalties
         }
 
-		pub fun getMetadata(): NFTMetadata {
-			return MPoweredNFT.getNFTMetadata(self.id)!
-		}
+	pub fun getMetadata(): NFTMetadata {
+		return MPoweredNFT.getNFTMetadata(self.id)!
+	}
 
-		pub fun getViews(): [Type] {
-			return [
-				Type<MetadataViews.Display>(),
-				Type<MetadataViews.Editions>(),
-				Type<MetadataViews.ExternalURL>(),
-				Type<MetadataViews.NFTCollectionData>(),
-				Type<MetadataViews.NFTCollectionDisplay>(),
-				Type<MetadataViews.Royalties>(),
-				Type<MetadataViews.Serial>(),
-				Type<MetadataViews.Traits>(),
-				Type<MetadataViews.NFTView>()
+	pub fun getViews(): [Type] {
+		return [
+			Type<MetadataViews.Display>(),
+			Type<MetadataViews.Editions>(),
+			Type<MetadataViews.ExternalURL>(),
+			Type<MetadataViews.NFTCollectionData>(),
+			Type<MetadataViews.NFTCollectionDisplay>(),
+			Type<MetadataViews.Royalties>(),
+			Type<MetadataViews.Serial>(),
+			Type<MetadataViews.Traits>(),
+			Type<MetadataViews.NFTView>()
 			]
-		}
+	}
 		
-		pub fun resolveView(_ view: Type): AnyStruct? {
-			switch view {
+	pub fun resolveView(_ view: Type): AnyStruct? {
+		switch view {
 				case Type<MetadataViews.Display>():
 					let metadata = self.getMetadata()
 					return MetadataViews.Display(
@@ -223,12 +215,10 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 					return MetadataViews.ExternalURL("https://mpowered.nft/".concat((self.owner!.address as Address).toString()).concat("/MPoweredNFT"))
 				case Type<MetadataViews.Editions>():
 					// the edition number is set to self.edition
-                    // the max edition field value is set to self.editionSize
-                    let editionInfo = MetadataViews.Edition(name: self.name, number: self.edition, max: self.editionSize)
-                    let editionList: [MetadataViews.Edition] = [editionInfo]
-                    return MetadataViews.Editions(
-                        editionList
-                    )
+                    			// the max edition field value is set to self.editionSize
+                    			let editionInfo = MetadataViews.Edition(name: self.name, number: self.edition, max: self.editionSize)
+                    			let editionList: [MetadataViews.Edition] = [editionInfo]
+                    			return MetadataViews.Editions(editionList)
 				case Type<MetadataViews.NFTCollectionDisplay>():
 					let media = MetadataViews.Media(
 						file: MPoweredNFT.image,
@@ -262,13 +252,13 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 				case Type<MetadataViews.NFTView>():
 					return MetadataViews.NFTView(
 						id: self.id,
-            uuid: self.uuid,
-            display: self.resolveView(Type<MetadataViews.Display>()) as! MetadataViews.Display?,
-            externalURL: self.resolveView(Type<MetadataViews.ExternalURL>()) as! MetadataViews.ExternalURL?,
-            collectionData: self.resolveView(Type<MetadataViews.NFTCollectionData>()) as! MetadataViews.NFTCollectionData?,
-            collectionDisplay: self.resolveView(Type<MetadataViews.NFTCollectionDisplay>()) as! MetadataViews.NFTCollectionDisplay?,
-            royalties: self.resolveView(Type<MetadataViews.Royalties>()) as! MetadataViews.Royalties?,
-            traits: self.resolveView(Type<MetadataViews.Traits>()) as! MetadataViews.Traits?
+            					uuid: self.uuid,
+            					display: self.resolveView(Type<MetadataViews.Display>()) as! MetadataViews.Display?,
+            					externalURL: self.resolveView(Type<MetadataViews.ExternalURL>()) as! MetadataViews.ExternalURL?,
+            					collectionData: self.resolveView(Type<MetadataViews.NFTCollectionData>()) as! MetadataViews.NFTCollectionData?,
+            					collectionDisplay: self.resolveView(Type<MetadataViews.NFTCollectionDisplay>()) as! MetadataViews.NFTCollectionDisplay?,
+            					royalties: self.resolveView(Type<MetadataViews.Royalties>()) as! MetadataViews.Royalties?,
+            					traits: self.resolveView(Type<MetadataViews.Traits>()) as! MetadataViews.Traits?
 					)
 			}
 			return nil
