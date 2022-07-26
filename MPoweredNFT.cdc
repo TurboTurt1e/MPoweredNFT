@@ -13,7 +13,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
     pub var image: MetadataViews.IPFSFile
     access(account) var maxNumEditions: UInt16
     pub var publicMinting: Bool
-    pub var nextLimitedEdition: UInt16
+    pub var nextLimitedEdition: UInt64
     pub var nextSetId: UInt64
     pub var nextMetadataId: UInt64
     //pub var nextSeriesId: UInt32
@@ -137,10 +137,10 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
         // access(self) let metadata: {String:String}
         access(self) let licensedRoyalties: [LicensedNFT.Royalty]
 
-        access(self) let metadataViewsRoyalties: [MetadataViews.Royalty]
+        //access(self) let metadataViewsRoyalties: [MetadataViews.Royalty]
         access(self) let metadata: {String: AnyStruct}
 
-        init(id: UInt64, name: String, description: String, creator: Address, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, limitedEdition: UInt16, edition: UInt16, editionSize: UInt16, royalties: [LicensedNFT.Royalty]) 
+        init(id: UInt64, name: String, description: String, creator: Address, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, limitedEdition: UInt64, edition: UInt16, editionSize: UInt16, royalties: [LicensedNFT.Royalty]) 
 	{		
 		pre {
 			MPoweredNFT.metadatas[id] == nil: "This NFT id already exists yet."
@@ -154,7 +154,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 		self.unlockableContent = unlockableContent
 		self.setId = setId
 		self.metadata = metadata
-		self.limitedEdition = UInt16
+		self.limitedEdition = limitedEdition
 		self.edition = edition
 		self.editionSize = editionSize
 		self.licensedRoyalties = royalties
@@ -202,13 +202,13 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 					return MetadataViews.Display(
 						name: metadata.name,
 						description: metadata.description,
-						thumbnail: metadata.thumbnail
+						thumbnail: metadata.image
 					)
 				case Type<MetadataViews.NFTCollectionData>():
 					return MetadataViews.NFTCollectionData(
-						storagePath: MPoweredNFT.CollectionStoragePath,
-						publicPath: MPoweredNFT.CollectionPublicPath,
-						providerPath: MPoweredNFT.CollectionPrivatePath,
+						storagePath: MPoweredNFT.collectionStoragePath,
+						publicPath: MPoweredNFT.collectionPublicPath,
+						providerPath: MPoweredNFT.collectionPrivatePath,
 						publicCollection: Type<&Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
 						publicLinkedType: Type<&Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
 						providerLinkedType: Type<&Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, NonFungibleToken.Provider}>(),
