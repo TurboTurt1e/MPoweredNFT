@@ -61,7 +61,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 	pub var metadata: {String: AnyStruct}
 		
 
-	init(name: String, description: String, creatorAddress: Address, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, limitedEditiondition: UInt64, edition: UInt16, editionSize: UInt16, ) {
+	init(name: String, description: String, creatorAddress: Address, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, limitedEdition: UInt64, edition: UInt16, editionSize: UInt16, ) {
 
         	self.id = MPoweredNFT.nextMetadataId
         	self.name = name
@@ -353,7 +353,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 
 
 
-    pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, LicensedNFT.CollectionPublic {
+    pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, LicensedNFT.CollectionPublic, MetadataViews.ResolverCollection {
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
 
         init() {
@@ -414,6 +414,8 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
             return self.ownedNFTs.keys
         }
 
+
+
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
             return &self.ownedNFTs[id] as &NonFungibleToken.NFT
         }
@@ -427,7 +429,13 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
             }
         }
 		
-        pub fun getMetadata(id: UInt64): {String:String} {
+		pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+			let token = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+			let nft = token as! &NFT
+			return nft as &AnyResource{MetadataViews.Resolver}
+		}
+
+        pub fun getMetadata(id: UInt64): MPoweredNFT.NFTMetadata {
             let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
             return (ref as! &MPoweredNFT.NFT).getMetadata()
         }
