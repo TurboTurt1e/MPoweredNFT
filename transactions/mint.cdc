@@ -3,7 +3,7 @@ import MPoweredNFT from "../../../contracts/MPoweredNFT.cdc"
 
 // Mint MPoweredNFT token to signer acct
 //
-transaction(metadata: String, royalties: [RaribleNFT.Royalty]) {
+transaction(metadata: String, royalties: [MPoweredNFT.Royalty]) {
     let minter: Capability<&MPoweredNFT.Minter>
     let receiver: Capability<&{NonFungibleToken.Receiver}>
 
