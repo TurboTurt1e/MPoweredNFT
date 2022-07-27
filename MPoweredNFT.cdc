@@ -1,6 +1,8 @@
 import NonFungibleToken from 0x02
 import LicensedNFT from 0x03
 import MetadataViews from 0x04
+import FungibleToken from 0x05
+import FlowToken from 0x06
 
 // MPoweredNFT contract
 //
