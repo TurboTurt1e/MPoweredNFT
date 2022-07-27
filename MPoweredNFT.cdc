@@ -359,7 +359,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 
 
 
-    pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, LicensedNFT.CollectionPublic, MetadataViews.ResolverCollection {
+    pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, LicensedNFT.CollectionPublic, MetadataViews.ResolverCollection, MPoweredNFTCollectionPublic {
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
 
         init() {
@@ -436,11 +436,14 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
             return self.ownedNFTs.keys
         }
 
-
-
+        
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-                return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            pre {
+                self.ownedNFTs[id] != nil : "NFT does not exist in the collection"
+            }
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
+
 
         pub fun borrowMPoweredNFT(id: UInt64): &MPoweredNFT.NFT? {
             if self.ownedNFTs[id] != nil {
