@@ -445,13 +445,13 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
         }
 
 
-        pub fun borrowMPoweredNFT(id: UInt64): &MPoweredNFT.NFT? {
-            if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
-                return ref as! &MPoweredNFT.NFT
-            } else {
-                return nil
+        pub fun borrowMPoweredNFT(id: UInt64): &MPoweredNFT.NFT {
+            pre {
+                self.ownedNFTs[id] != nil : "NFT does not exist in the collection"
             }
+            
+            let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            return ref as! &MPoweredNFT.NFT
         }
 		
 		pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
