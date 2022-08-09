@@ -1,8 +1,9 @@
-import NonFungibleToken from 0x02
-import LicensedNFT from 0x03
-import MetadataViews from 0x04
-import FungibleToken from 0x05
-import FlowToken from 0x06
+import NonFungibleToken from 0xf8d6e0586b0a20c7
+import LicensedNFT from 0xf8d6e0586b0a20c7
+import MetadataViews from 0xf8d6e0586b0a20c7
+//import MetadataViews from "./utility/MetadataViews"
+import FungibleToken from 0xf8d6e0586b0a20c7
+import FlowToken from 0x0ae53cb6e3f42a79
 
 // MPoweredNFT contract
 //
@@ -149,9 +150,10 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
         // access(self) let metadata: {String:String}
         access(self) let licensedRoyalties: [LicensedNFT.Royalty]
 
-        //access(self) let metadataViewsRoyalties: [MetadataViews.Royalty]
+        access(self) let metadataViewsRoyalties: [MetadataViews.Royalty]
         access(self) let metadata: {String: AnyStruct}
 
+		/* 
         init(id: UInt64, name: String, description: String, creator: Address, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, limitedEdition: UInt64, edition: UInt16, editionSize: UInt16, royalties: [LicensedNFT.Royalty]) 
 		{		
 			pre {
@@ -170,10 +172,94 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 			self.edition = edition
 			self.editionSize = editionSize
 			self.licensedRoyalties = royalties
+			self.metadataViewsRoyalties = []
 			//convert royalties to metadata royalties standard
 			//metadataViewsRoyalties = MetadataViews.Royalty()
+			for r in self.licensedRoyalties
+			{
+				let beneficiary = r.address
+            	let beneficiaryCapability = getAccount(beneficiary).getCapability<&{FungibleToken.Receiver}>(MetadataViews.getRoyaltyReceiverPublicPath())
+
+            // Make sure the royalty capability is valid before minting the NFT
+            if !beneficiaryCapability.check() { panic("Beneficiary capability is not valid!") }
+
+				self.metadataViewsRoyalties.append(
+                MetadataViews.Royalty(
+                    receiver: beneficiaryCapability,
+                    cut: r.fee,
+                    description: "LicencedNFT"
+                )
+            )
+            }
+
+			
 			MPoweredNFT.totalSupply = MPoweredNFT.totalSupply + 1
         }
+		*/
+        init(id: UInt64, name: String, description: String, creator: Address, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, limitedEdition: UInt64, edition: UInt16, editionSize: UInt16, 
+		cuts: [UFix64],
+    	royaltyDescriptions: [String],
+    	royaltyBeneficiaries: [Address] ) 
+		{		
+			pre {
+				MPoweredNFT.metadatas[id] == nil: "This NFT id already exists yet."
+				cuts.length == royaltyDescriptions.length && cuts.length == royaltyBeneficiaries.length: "Royalty related detail arrays should all be the same length"
+			}
+
+			self.id = id
+			self.name = name
+			self.description = description
+			self.creator = creator
+			self.image = image
+			self.unlockableContent = unlockableContent
+			self.setId = setId
+			self.metadata = metadata
+			self.limitedEdition = limitedEdition
+			self.edition = edition
+			self.editionSize = editionSize
+			//self.licensedRoyalties = royalties
+			
+			//self.metadataViewsRoyalties = []
+			//self.licensedRoyalties = []
+			//convert royalties to metadata royalties standard
+			//metadataViewsRoyalties = MetadataViews.Royalty()
+
+			// Create the royalty details
+			var count = 0
+			var royalties: [MetadataViews.Royalty] = []
+			var lRoyalties: [LicensedNFT.Royalty] = []
+			while royaltyBeneficiaries.length > count {
+				let beneficiary = royaltyBeneficiaries[count]
+				let beneficiaryCapability = getAccount(beneficiary)
+				.getCapability<&{FungibleToken.Receiver}>(MetadataViews.getRoyaltyReceiverPublicPath())
+
+				// Make sure the royalty capability is valid before minting the NFT
+				if !beneficiaryCapability.check() { panic("Beneficiary capability is not valid!") }
+
+				royalties.append(
+					MetadataViews.Royalty(
+						receiver: beneficiaryCapability,
+						cut: cuts[count],
+						description: royaltyDescriptions[count]
+					)
+				)
+
+				lRoyalties.append(
+					MPoweredNFT.Royalty(
+						address: beneficiary,
+						fee: cuts[count]
+					)
+				)
+				count = count + 1
+			}
+
+			self.metadataViewsRoyalties = royalties
+			self.licensedRoyalties = lRoyalties
+
+			
+			MPoweredNFT.totalSupply = MPoweredNFT.totalSupply + 1
+        }
+
 
         pub fun getUnlockableContent(): String {
             return self.unlockableContent
@@ -197,7 +283,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 		    	Type<MetadataViews.NFTCollectionDisplay>(),
 		    	Type<MetadataViews.Royalties>(),
 		    	Type<MetadataViews.Serial>(),
-		    	Type<MetadataViews.Traits>() //,
+		    	Type<MetadataViews.Traits>()//,
 		    	//Type<MetadataViews.NFTView>()
 			]
 	    }
@@ -247,15 +333,22 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 							"discord": MetadataViews.ExternalURL("https://discord.gg/mpowerednft")
 						}
 					)
+
+                case Type<MetadataViews.Royalties>():
+                    return MetadataViews.Royalties(
+                        self.metadataViewsRoyalties
+                    )
+				/* 
 				case Type<MetadataViews.Royalties>():
 					// upgrade code to loop through licensedRoyalties
 					return MetadataViews.Royalties([
 						MetadataViews.Royalty(
-							recepient: getAccount(0x01).getCapability<&FlowToken.Vault{FungibleToken.Receiver}>(/public/flowTokenReceiver),
+							recepient: getAccount(0xf8d6e0586b0a20c7).getCapability<&FlowToken.Vault{FungibleToken.Receiver}>(/public/flowTokenReceiver),
 							cut: 0.025 , // 2.5% royalty on secondary sales
 							description: "MPoweredNFT royalty"
 						)
 					])
+					*/
 				case Type<MetadataViews.Serial>():
 					return MetadataViews.Serial(
 						self.id
@@ -263,6 +356,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 				case Type<MetadataViews.Traits>():
 					return MetadataViews.dictToTraits(dict: self.getMetadata().metadata, excludedNames: nil)
 				
+				/* 
 				case Type<MetadataViews.NFTView>():
 					return MetadataViews.NFTView(
 						id: self.id,
@@ -274,7 +368,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
             					royalties: self.resolveView(Type<MetadataViews.Royalties>()) as! MetadataViews.Royalties?,
             					traits: self.resolveView(Type<MetadataViews.Traits>()) as! MetadataViews.Traits?
 					)
-					
+				*/
 			}
 			return nil
 		}
@@ -283,6 +377,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
         destroy() {
             emit Destroy(id: self.id)
         }
+
     }
 
     // Publicly available data and functions for the NFT Collection
@@ -500,12 +595,18 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 	
     pub resource Minter {
 	//standardize the minting parameters
-        pub fun mintSingle(recipient: Capability<&{NonFungibleToken.Receiver}>, name: String, description: String, image: String, unlockableContent: String, setId: UInt64, metadata: {String:String}, royalties: [LicensedNFT.Royalty]): &NonFungibleToken.NFT {
+        pub fun mintSingle(recipient: Capability<&{NonFungibleToken.Receiver}>, name: String, description: String, image: String, unlockableContent: String, setId: UInt64, metadata: {String:String},
+		cuts: [UFix64],
+    	royaltyDescriptions: [String],
+    	royaltyBeneficiaries: [Address] 
+		): &NonFungibleToken.NFT {
 	    pre {
 			MPoweredNFT.publicMinting: "Minting is currently closed by the Administrator!"
 			//check that the set being assigned was created by the minter 
 			recipient != nil : "Must have a valid capability available in order to mint"
+			cuts.length == royaltyDescriptions.length && cuts.length == royaltyBeneficiaries.length: "Royalty related detail arrays should all be the same length"
 	    }
+
 	    //let recipientAddress = recipient.owner!.address
 		let ownerAddress = self.owner!.address
 
@@ -513,18 +614,45 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 	    //assert(recipientAddress == MPoweredNFT.setDatas[setId].values.creator, message: "Error - This is not your Set. You cannot add to this Set.")
 	    assert(ownerAddress == MPoweredNFT.setDatas[setId]!.creator, message: "Error - This is not your Set. You cannot add to this Set.")
 			
-        let token <- create NFT (id: MPoweredNFT.totalSupply, name: name, description: description, creator: ownerAddress, image: image, unlockableContent: unlockableContent, setId: setId, metadata: metadata, limitedEdition: MPoweredNFT.nextLimitedEdition, edition: UInt16(1), editionSize: UInt16(1), royalties: royalties)
+        let token <- create NFT (id: MPoweredNFT.totalSupply, name: name, description: description, creator: ownerAddress, image: image, unlockableContent: unlockableContent, setId: setId, metadata: metadata, limitedEdition: MPoweredNFT.nextLimitedEdition, edition: UInt16(1), editionSize: UInt16(1), 
+		//royalties: royalties
+		cuts: cuts,
+    	royaltyDescriptions: royaltyDescriptions,
+    	royaltyBeneficiaries: royaltyBeneficiaries
+		
+		)
+
+		// Create the royalty details
+		var count = 0
+		var lRoyalties: [LicensedNFT.Royalty] = []
+		while royaltyBeneficiaries.length > count {
+			let beneficiary = royaltyBeneficiaries[count]
+
+				lRoyalties.append(
+					MPoweredNFT.Royalty(
+						address: beneficiary,
+						fee: cuts[count]
+					)
+				)
+				count = count + 1
+			}
+
 
         MPoweredNFT.nextLimitedEdition = MPoweredNFT.nextLimitedEdition + 1
         let tokenRef = &token as &NonFungibleToken.NFT
-        emit Mint(id: token.id, creator: ownerAddress, metadata: metadata, royalties: royalties)
+        emit Mint(id: token.id, creator: ownerAddress, metadata: metadata, royalties: lRoyalties )
         recipient.borrow()!.deposit(token: <- token)
         return tokenRef
     }
 		
 	// This function takes metadata arguments as well as an editionSize parameter
 	// which will mint multiple NFTs with the same metadata and increasing serial numbers
-	pub fun mintEditions(recipient: &MPoweredNFT.Collection{MPoweredNFTCollectionPublic}, name: String, description: String, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, editionSize: UInt16, royalties: [LicensedNFT.Royalty]) {
+	pub fun mintEditions(recipient: &MPoweredNFT.Collection{MPoweredNFTCollectionPublic}, name: String, description: String, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, editionSize: UInt16, 
+		cuts: [UFix64],
+    	royaltyDescriptions: [String],
+    	royaltyBeneficiaries: [Address] 
+	
+	) {
 		pre {
 			MPoweredNFT.publicMinting: "Minting is currently closed by the Administrator!"
 			editionSize <= MPoweredNFT.maxNumEditions : "Error Unable to mint that many NFTs... cannot mint more than maxNumEditions"
@@ -536,7 +664,12 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 		// you can only mint for sets that you created
 		assert(ownerAddress == MPoweredNFT.setDatas[setId]!.creator, message: "Error - This is not your Set. You cannot add to this Set.")
 		while UInt16(a) <= editionSize {
-			var newNFT <- create NFT (id: MPoweredNFT.totalSupply, name: name, description: description, creator: ownerAddress, image: image, unlockableContent: unlockableContent, setId: setId, metadata: metadata, limitedEdition: MPoweredNFT.nextLimitedEdition, edition: UInt16(a), editionSize: editionSize, royalties: royalties)
+			var newNFT <- create NFT (id: MPoweredNFT.totalSupply, name: name, description: description, creator: ownerAddress, image: image, unlockableContent: unlockableContent, setId: setId, metadata: metadata, limitedEdition: MPoweredNFT.nextLimitedEdition, edition: UInt16(a), editionSize: editionSize, 
+			//royalties: royalties
+			cuts: cuts,
+    		royaltyDescriptions: royaltyDescriptions,
+    		royaltyBeneficiaries: royaltyBeneficiaries
+			)
 			recipient.deposit(token: <-newNFT)
 			a = a + 1
 		}
