@@ -22,9 +22,10 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
     //pub var nextSeriesId: UInt32
     pub let ipfsCID: String?
     pub let dateCreated: UFix64
+	pub var treasuryAddress: Address
 	
     // dictionary of SetData structs
-    access(self) var setDatas: {UInt64: SetData}
+    access(account) var setDatas: {UInt64: SetData}
     // dictionary of metadata structs	
     access(account) let metadatas: {UInt64: NFTMetadata}
 
@@ -41,7 +42,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
     pub event Withdraw(id: UInt64, from: Address?)
     pub event Deposit(id: UInt64, to: Address?)
 
-    pub event Mint(id: UInt64, creator: Address, metadata: {String:String}, royalties: [LicensedNFT.Royalty])
+    pub event Mint(id: UInt64, creator: Address, metadata: {String: String}, royalties: [LicensedNFT.Royalty])
     pub event Destroy(id: UInt64)
 
     pub event SetCreated(setId: UInt64)
@@ -61,20 +62,19 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
     // A data structure that contains metadata fields for a single NFT
     pub struct NFTMetadata 
     {
-	pub let id: UInt64
-	pub let name: String
-	pub let description: String
-	pub let creator: Address
+		pub let id: UInt64
+		pub let name: String
+		pub let description: String
+		pub let creator: Address
 
-	pub let image: MetadataViews.IPFSFile
-	pub let limitedEdition: UInt64
-	pub let edition: UInt16
-	pub let editionSize: UInt16
-	pub let setId: UInt64
-	pub var metadata: {String: AnyStruct}
+		pub let image: MetadataViews.IPFSFile
+		pub let limitedEdition: UInt64
+		pub let edition: UInt16
+		pub let editionSize: UInt16
+		pub let setId: UInt64
+		pub var metadata: {String: String}
 		
-
-	init(id: UInt64, name: String, description: String, creatorAddress: Address, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, limitedEdition: UInt64, edition: UInt16, editionSize: UInt16, ) {
+		init(id: UInt64, name: String, description: String, creatorAddress: Address, image: String, unlockableContent: String, setId: UInt64, metadata: {String: String}, limitedEdition: UInt64, edition: UInt16, editionSize: UInt16, ) {
 
         	self.id = id
         	self.name = name
@@ -84,17 +84,17 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 
         	assert(image.length > 0, message: "NFT must contain an IPFS hash string")
         	//self.image = image
-		self.image = MetadataViews.IPFSFile(
-			cid: MPoweredNFT.ipfsCID!,
-			path: image
-		)
+			self.image = MetadataViews.IPFSFile(
+				cid: MPoweredNFT.ipfsCID!,
+				path: image
+			)
 
         	self.limitedEdition = limitedEdition
-		self.edition = edition
+			self.edition = edition
         	self.editionSize = editionSize
-		self.metadata = metadata
-		//MPoweredNFT.nextMetadataId = MPoweredNFT.nextMetadataId + 1
-      }
+			self.metadata = metadata
+			//MPoweredNFT.nextMetadataId = MPoweredNFT.nextMetadataId + 1
+		}
     }
 
     //	
@@ -151,7 +151,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
         access(self) let licensedRoyalties: [LicensedNFT.Royalty]
 
         access(self) let metadataViewsRoyalties: [MetadataViews.Royalty]
-        access(self) let metadata: {String: AnyStruct}
+        access(self) let metadata: {String: String}
 
 		/* 
         init(id: UInt64, name: String, description: String, creator: Address, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, limitedEdition: UInt64, edition: UInt16, editionSize: UInt16, royalties: [LicensedNFT.Royalty]) 
@@ -196,7 +196,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 			MPoweredNFT.totalSupply = MPoweredNFT.totalSupply + 1
         }
 		*/
-        init(id: UInt64, name: String, description: String, creator: Address, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, limitedEdition: UInt64, edition: UInt16, editionSize: UInt16, 
+        init(id: UInt64, name: String, description: String, creator: Address, image: String, unlockableContent: String, setId: UInt64, metadata: {String: String}, limitedEdition: UInt64, edition: UInt16, editionSize: UInt16, 
 		cuts: [UFix64],
     	royaltyDescriptions: [String],
     	royaltyBeneficiaries: [Address] ) 
@@ -225,9 +225,15 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 			//metadataViewsRoyalties = MetadataViews.Royalty()
 
 			// Create the royalty details
-			var count = 0
 			var royalties: [MetadataViews.Royalty] = []
 			var lRoyalties: [LicensedNFT.Royalty] = []
+
+			//add in MPowered Fee to both royalties and lRoyalties arrays
+			let treasuryBeneficiaryCapability = getAccount(MPoweredNFT.treasuryAddress).getCapability<&{FungibleToken.Receiver}>(MetadataViews.getRoyaltyReceiverPublicPath())
+			royalties.append(MetadataViews.Royalty(receiver: treasuryBeneficiaryCapability,cut: 0.025,description: "MPoweredNFT"))
+			lRoyalties.append(MPoweredNFT.Royalty(address: MPoweredNFT.treasuryAddress,fee: 0.025))
+
+			var count = 0
 			while royaltyBeneficiaries.length > count {
 				let beneficiary = royaltyBeneficiaries[count]
 				let beneficiaryCapability = getAccount(beneficiary)
@@ -288,97 +294,98 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 			]
 	    }
 		
-	pub fun resolveView(_ view: Type): AnyStruct? {
-		switch view {
-				case Type<MetadataViews.Display>():
-					let metadata = self.getMetadata()
-					return MetadataViews.Display(
-						name: metadata.name,
-						description: metadata.description,
-						thumbnail: metadata.image
-					)
-				case Type<MetadataViews.NFTCollectionData>():
-					return MetadataViews.NFTCollectionData(
-						storagePath: MPoweredNFT.collectionStoragePath,
-						publicPath: MPoweredNFT.collectionPublicPath,
-						providerPath: MPoweredNFT.collectionPrivatePath,
-						publicCollection: Type<&Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
-						publicLinkedType: Type<&Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
-						providerLinkedType: Type<&Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, NonFungibleToken.Provider}>(),
-						createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
-								return <- MPoweredNFT.createEmptyCollection()
-						})
-					)
-				case Type<MetadataViews.ExternalURL>():
-					return MetadataViews.ExternalURL("https://mpowered.nft/".concat((self.owner!.address as Address).toString()).concat("/MPoweredNFT"))
-				case Type<MetadataViews.Editions>():
-					// the edition number is set to self.edition
-                    			// the max edition field value is set to self.editionSize
-                    			let editionInfo = MetadataViews.Edition(name: self.name, number: UInt64(self.edition), max: UInt64(self.editionSize))
-                    			let editionList: [MetadataViews.Edition] = [editionInfo]
-                    			return MetadataViews.Editions(editionList)
-				case Type<MetadataViews.NFTCollectionDisplay>():
-					let media = MetadataViews.Media(
-						file: MPoweredNFT.image,
-						mediaType: "image"
-					)
-					return MetadataViews.NFTCollectionDisplay(
-						name: MPoweredNFT.name,
-						description: MPoweredNFT.description,
-						externalURL: MetadataViews.ExternalURL("https://mpowered.nft/".concat((self.owner!.address as Address).toString()).concat("/MPoweredNFT")),
-						squareImage: media,
-						bannerImage: media,
-						socials: {
-							"twitter": MetadataViews.ExternalURL("https://twitter.com/mpowerednft"),
-							"discord": MetadataViews.ExternalURL("https://discord.gg/mpowerednft")
-						}
-					)
-
-                case Type<MetadataViews.Royalties>():
-                    return MetadataViews.Royalties(
-                        self.metadataViewsRoyalties
-                    )
-				/* 
-				case Type<MetadataViews.Royalties>():
-					// upgrade code to loop through licensedRoyalties
-					return MetadataViews.Royalties([
-						MetadataViews.Royalty(
-							recepient: getAccount(0xf8d6e0586b0a20c7).getCapability<&FlowToken.Vault{FungibleToken.Receiver}>(/public/flowTokenReceiver),
-							cut: 0.025 , // 2.5% royalty on secondary sales
-							description: "MPoweredNFT royalty"
+		pub fun resolveView(_ view: Type): AnyStruct? {
+			switch view {
+					case Type<MetadataViews.Display>():
+						let metadata = self.getMetadata()
+						return MetadataViews.Display(
+							name: metadata.name,
+							description: metadata.description,
+							thumbnail: metadata.image
 						)
-					])
+					case Type<MetadataViews.NFTCollectionData>():
+						return MetadataViews.NFTCollectionData(
+							storagePath: MPoweredNFT.collectionStoragePath,
+							publicPath: MPoweredNFT.collectionPublicPath,
+							providerPath: MPoweredNFT.collectionPrivatePath,
+							publicCollection: Type<&Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+							publicLinkedType: Type<&Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+							providerLinkedType: Type<&Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, NonFungibleToken.Provider}>(),
+							createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+									return <- MPoweredNFT.createEmptyCollection()
+							})
+						)
+					case Type<MetadataViews.ExternalURL>():
+						return MetadataViews.ExternalURL("https://mpowered.nft/".concat((self.owner!.address as Address).toString()).concat("/MPoweredNFT"))
+					case Type<MetadataViews.Editions>():
+						// the edition number is set to self.edition
+									// the max edition field value is set to self.editionSize
+									let editionInfo = MetadataViews.Edition(name: self.name, number: UInt64(self.edition), max: UInt64(self.editionSize))
+									let editionList: [MetadataViews.Edition] = [editionInfo]
+									return MetadataViews.Editions(editionList)
+					case Type<MetadataViews.NFTCollectionDisplay>():
+						let media = MetadataViews.Media(
+							file: MPoweredNFT.image,
+							mediaType: "image"
+						)
+						return MetadataViews.NFTCollectionDisplay(
+							name: MPoweredNFT.name,
+							description: MPoweredNFT.description,
+							externalURL: MetadataViews.ExternalURL("https://mpowered.nft/".concat((self.owner!.address as Address).toString()).concat("/MPoweredNFT")),
+							squareImage: media,
+							bannerImage: media,
+							socials: {
+								"twitter": MetadataViews.ExternalURL("https://twitter.com/mpowerednft"),
+								"discord": MetadataViews.ExternalURL("https://discord.gg/mpowerednft")
+							}
+						)
+
+					case Type<MetadataViews.Royalties>():
+						return MetadataViews.Royalties(
+							self.metadataViewsRoyalties
+						)
+					/* 
+					case Type<MetadataViews.Royalties>():
+						// upgrade code to loop through licensedRoyalties
+						return MetadataViews.Royalties([
+							MetadataViews.Royalty(
+								recepient: getAccount(0xf8d6e0586b0a20c7).getCapability<&FlowToken.Vault{FungibleToken.Receiver}>(/public/flowTokenReceiver),
+								cut: 0.025 , // 2.5% royalty on secondary sales
+								description: "MPoweredNFT royalty"
+							)
+						])
+						*/
+					case Type<MetadataViews.Serial>():
+						return MetadataViews.Serial(
+							self.id
+						)
+					case Type<MetadataViews.Traits>():
+						return MetadataViews.dictToTraits(dict: self.getMetadata().metadata, excludedNames: nil)
+					
+					/* 
+					case Type<MetadataViews.NFTView>():
+						return MetadataViews.NFTView(
+							id: self.id,
+									uuid: self.uuid,
+									display: self.resolveView(Type<MetadataViews.Display>()) as! MetadataViews.Display?,
+									externalURL: self.resolveView(Type<MetadataViews.ExternalURL>()) as! MetadataViews.ExternalURL?,
+									collectionData: self.resolveView(Type<MetadataViews.NFTCollectionData>()) as! MetadataViews.NFTCollectionData?,
+									collectionDisplay: self.resolveView(Type<MetadataViews.NFTCollectionDisplay>()) as! MetadataViews.NFTCollectionDisplay?,
+									royalties: self.resolveView(Type<MetadataViews.Royalties>()) as! MetadataViews.Royalties?,
+									traits: self.resolveView(Type<MetadataViews.Traits>()) as! MetadataViews.Traits?
+						)
 					*/
-				case Type<MetadataViews.Serial>():
-					return MetadataViews.Serial(
-						self.id
-					)
-				case Type<MetadataViews.Traits>():
-					return MetadataViews.dictToTraits(dict: self.getMetadata().metadata, excludedNames: nil)
-				
-				/* 
-				case Type<MetadataViews.NFTView>():
-					return MetadataViews.NFTView(
-						id: self.id,
-            					uuid: self.uuid,
-            					display: self.resolveView(Type<MetadataViews.Display>()) as! MetadataViews.Display?,
-            					externalURL: self.resolveView(Type<MetadataViews.ExternalURL>()) as! MetadataViews.ExternalURL?,
-            					collectionData: self.resolveView(Type<MetadataViews.NFTCollectionData>()) as! MetadataViews.NFTCollectionData?,
-            					collectionDisplay: self.resolveView(Type<MetadataViews.NFTCollectionDisplay>()) as! MetadataViews.NFTCollectionDisplay?,
-            					royalties: self.resolveView(Type<MetadataViews.Royalties>()) as! MetadataViews.Royalties?,
-            					traits: self.resolveView(Type<MetadataViews.Traits>()) as! MetadataViews.Traits?
-					)
-				*/
+				}
+				return nil
 			}
-			return nil
+
+
+		destroy() {
+			emit Destroy(id: self.id)
 		}
 
-
-        destroy() {
-            emit Destroy(id: self.id)
-        }
-
     }
+
 
     // Publicly available data and functions for the NFT Collection
     pub resource interface MPoweredNFTCollectionPublic {
@@ -406,6 +413,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
             }
         }
 
+		pub fun createMinter(): @MPoweredNFT.Minter
     }
 
     // A Set is a grouping of related NFTs,
@@ -416,21 +424,16 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
     // about a set by calling various getters located
     pub struct SetData {
 
-        // Unique Id for the Set
-        pub let setId: UInt64
-
-        // Name of the Set
-        pub let name: String
-
-        // Description of the Set
-        pub let description: String?
-
-        // Creator of the Set
-        pub let creator: Address
-		
-	// Is the set locked
-	pub var locked: Bool
-
+		// Unique Id for the Set
+		pub let setId: UInt64
+		// Name of the Set
+		pub let name: String
+		// Description of the Set
+		pub let description: String?
+		// Creator of the Set
+		pub let creator: Address
+		// Is the set locked
+		pub var locked: Bool
         // Series that this Set belongs to
         //pub let series: UInt32
 
@@ -463,6 +466,12 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
             self.ownedNFTs <- {}
         }
 
+		// create a new Minter resource	
+		
+		pub fun createMinter(): @MPoweredNFT.Minter {
+			return <- create MPoweredNFT.Minter()
+		}
+		
 		pub fun getTokenData(id: UInt64): NFTMetadata {
             pre {
                 self.ownedNFTs[id] != nil : "NFT does not exist in the collection"
@@ -488,7 +497,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
             return <- token
         }
 		
-	pub fun batchWithdraw(ids: [UInt64]): @NonFungibleToken.Collection {
+		pub fun batchWithdraw(ids: [UInt64]): @NonFungibleToken.Collection {
             // Create a new empty Collection
             var batchCollection <- create Collection()
             
@@ -502,11 +511,11 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
         }
 		
 		
-    pub fun deposit(token: @NonFungibleToken.NFT) {
-	    pre
-	    {
-		self.owner?.address != nil : "deposit function Error - Owner address is nil."
-	    }
+    	pub fun deposit(token: @NonFungibleToken.NFT) {
+	    	pre
+	    	{
+				self.owner?.address != nil : "deposit function Error - Owner address is nil."
+	    	}
             let token <- token as! @MPoweredNFT.NFT
             let id: UInt64 = token.id
             let dummy <- self.ownedNFTs[id] <- token
@@ -516,7 +525,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 
 
 		
-	pub fun batchDeposit(tokens: @NonFungibleToken.Collection) {
+		pub fun batchDeposit(tokens: @NonFungibleToken.Collection) {
 
             // Get an array of the IDs to be deposited
             let keys = tokens.getIDs()
@@ -575,7 +584,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
     pub fun createEmptyCollection(): @NonFungibleToken.Collection {
         return <- create Collection()
     }
-	
+
 	// Get information about a NFTMetadata
 	pub fun getNFTMetadata(_ metadataId: UInt64): NFTMetadata? {
 		return self.metadatas[metadataId]
@@ -593,13 +602,42 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 		return CollectionInfo()
 	}
 	
-    pub resource Minter {
-	//standardize the minting parameters
-        pub fun mintSingle(recipient: Capability<&{NonFungibleToken.Receiver}>, name: String, description: String, image: String, unlockableContent: String, setId: UInt64, metadata: {String:String},
+	// Publicly available data and functions for the NFT Collection
+    /*
+	pub resource interface MPoweredNFTMinterPublic {
+
+		pub fun mintSingle(recipient: Capability<&{NonFungibleToken.Receiver}>, name: String, description: String, image: String, unlockableContent: String, setId: UInt64, metadata: {String:String},
 		cuts: [UFix64],
     	royaltyDescriptions: [String],
     	royaltyBeneficiaries: [Address] 
-		): &NonFungibleToken.NFT {
+		): &NonFungibleToken.NFT
+
+		pub fun mintEditions(recipient: &MPoweredNFT.Collection{MPoweredNFTCollectionPublic}, name: String, description: String, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, editionSize: UInt16, 
+			cuts: [UFix64],
+			royaltyDescriptions: [String],
+			royaltyBeneficiaries: [Address] 
+		)
+
+		pub fun createSet(name: String, description: String?)
+		pub fun lockSet(setId: UInt64)
+
+    }
+	*/
+
+    pub resource Minter {
+	//standardize the minting parameters
+        pub fun mintSingle(
+			recipient: Capability<&{NonFungibleToken.Receiver}>, 
+			name: String, 
+			description: String, 
+			image: String, 
+			unlockableContent: String, 
+			setId: UInt64, 
+			metadata: {String: String},
+			cuts: [UFix64],
+			royaltyDescriptions: [String],
+			royaltyBeneficiaries: [Address] 
+			): &NonFungibleToken.NFT {
 	    pre {
 			MPoweredNFT.publicMinting: "Minting is currently closed by the Administrator!"
 			//check that the set being assigned was created by the minter 
@@ -609,10 +647,16 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 
 	    //let recipientAddress = recipient.owner!.address
 		let ownerAddress = self.owner!.address
-
+		log("ownerAddress = ")
+		log(ownerAddress)
+		log("MPoweredNFT.setDatas[setId]!.creator = ")
+		log(MPoweredNFT.setDatas[setId]!.creator)
+    	log("setId")
+    	log(setId)
     	// you can only mint for sets that you created
 	    //assert(recipientAddress == MPoweredNFT.setDatas[setId].values.creator, message: "Error - This is not your Set. You cannot add to this Set.")
 	    assert(ownerAddress == MPoweredNFT.setDatas[setId]!.creator, message: "Error - This is not your Set. You cannot add to this Set.")
+
 			
         let token <- create NFT (id: MPoweredNFT.totalSupply, name: name, description: description, creator: ownerAddress, image: image, unlockableContent: unlockableContent, setId: setId, metadata: metadata, limitedEdition: MPoweredNFT.nextLimitedEdition, edition: UInt16(1), editionSize: UInt16(1), 
 		//royalties: royalties
@@ -622,7 +666,7 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 		
 		)
 
-		// Create the royalty details
+		// Create the royalty details for event emitting
 		var count = 0
 		var lRoyalties: [LicensedNFT.Royalty] = []
 		while royaltyBeneficiaries.length > count {
@@ -643,75 +687,80 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
         emit Mint(id: token.id, creator: ownerAddress, metadata: metadata, royalties: lRoyalties )
         recipient.borrow()!.deposit(token: <- token)
         return tokenRef
-    }
-		
-	// This function takes metadata arguments as well as an editionSize parameter
-	// which will mint multiple NFTs with the same metadata and increasing serial numbers
-	pub fun mintEditions(recipient: &MPoweredNFT.Collection{MPoweredNFTCollectionPublic}, name: String, description: String, image: String, unlockableContent: String, setId: UInt64, metadata: {String: AnyStruct}, editionSize: UInt16, 
-		cuts: [UFix64],
-    	royaltyDescriptions: [String],
-    	royaltyBeneficiaries: [Address] 
-	
-	) {
-		pre {
-			MPoweredNFT.publicMinting: "Minting is currently closed by the Administrator!"
-			editionSize <= MPoweredNFT.maxNumEditions : "Error Unable to mint that many NFTs... cannot mint more than maxNumEditions"
-			recipient != nil : "Must have a valid MPoweredNFT Collection available in order to mint"
-		}
-		var a = 1
-		let recipientAddress = recipient.owner!.address
-		let ownerAddress = self.owner!.address
-		// you can only mint for sets that you created
-		assert(ownerAddress == MPoweredNFT.setDatas[setId]!.creator, message: "Error - This is not your Set. You cannot add to this Set.")
-		while UInt16(a) <= editionSize {
-			var newNFT <- create NFT (id: MPoweredNFT.totalSupply, name: name, description: description, creator: ownerAddress, image: image, unlockableContent: unlockableContent, setId: setId, metadata: metadata, limitedEdition: MPoweredNFT.nextLimitedEdition, edition: UInt16(a), editionSize: editionSize, 
-			//royalties: royalties
-			cuts: cuts,
-    		royaltyDescriptions: royaltyDescriptions,
-    		royaltyBeneficiaries: royaltyBeneficiaries
-			)
-			recipient.deposit(token: <-newNFT)
-			a = a + 1
-		}
-		MPoweredNFT.nextLimitedEdition = MPoweredNFT.nextLimitedEdition + 1
-			
-	}
-		
-	// Create a new Set and store it in the setDatas mapping in the contract
-        pub fun createSet(name: String, description: String?) {
-		pre 
-		{
-			//check that the set name does not exist yet
-			MPoweredNFT.setNameExists(name: name) == false : "Error - Set name already exists"
-		}
-		
-		let ownerAddress = self.owner!.address
-		
-		MPoweredNFT.setDatas[MPoweredNFT.nextSetId] = SetData(name: name, description: description, creator: ownerAddress)
-	}
-
-	// Lock the set inside set mapping in the contract
-        pub fun lockSet(setId: UInt64) {
-		
-		pre {
-			//check that the setId exists already
-			MPoweredNFT.setIdExists(setId:setId) == true : "Error - Set Id does not exist"
-
 		}
 			
-		// get owner address
-		let ownerAddress = self.owner!.address
-		// you can only lock sets that you created
-		assert(ownerAddress == MPoweredNFT.setDatas[setId]!.creator, message: "Error - This is not your Set. You cannot lock this Set.")
+		// This function takes metadata arguments as well as an editionSize parameter
+		// which will mint multiple NFTs with the same metadata and increasing serial numbers
+		pub fun mintEditions(recipient: &MPoweredNFT.Collection{MPoweredNFTCollectionPublic}, name: String, description: String, image: String, unlockableContent: String, setId: UInt64, metadata: {String: String}, editionSize: UInt16, 
+			cuts: [UFix64],
+			royaltyDescriptions: [String],
+			royaltyBeneficiaries: [Address] 
+		
+		) {
+			pre {
+				MPoweredNFT.publicMinting: "Minting is currently closed by the Administrator!"
+				editionSize <= MPoweredNFT.maxNumEditions : "Error Unable to mint that many NFTs... cannot mint more than maxNumEditions"
+				recipient != nil : "Must have a valid MPoweredNFT Collection available in order to mint"
+			}
+			var a = 1
+			let recipientAddress = recipient.owner!.address
+			let ownerAddress = self.owner!.address
+			// you can only mint for sets that you created
+			assert(ownerAddress == MPoweredNFT.setDatas[setId]!.creator, message: "Error - This is not your Set. You cannot add to this Set.")
+			while UInt16(a) <= editionSize {
+				var newNFT <- create NFT (id: MPoweredNFT.totalSupply, name: name, description: description, creator: ownerAddress, image: image, unlockableContent: unlockableContent, setId: setId, metadata: metadata, limitedEdition: MPoweredNFT.nextLimitedEdition, edition: UInt16(a), editionSize: editionSize, 
+				//royalties: royalties
+				cuts: cuts,
+				royaltyDescriptions: royaltyDescriptions,
+				royaltyBeneficiaries: royaltyBeneficiaries
+				)
+				recipient.deposit(token: <-newNFT)
+				a = a + 1
+			}
+			MPoweredNFT.nextLimitedEdition = MPoweredNFT.nextLimitedEdition + 1
+				
+		}
+			
+		// Create a new Set and store it in the setDatas mapping in the contract
+			pub fun createSet(name: String, description: String?) {
+			pre 
+			{
+				//check that the set name does not exist yet
+				MPoweredNFT.setNameExists(name: name) == false : "Error - Set name already exists"
+			}
+			
+			let ownerAddress = self.owner!.address
+			log ("createSet")
+			log (name)
+			log (description)
+			log (ownerAddress)
+			
+			MPoweredNFT.setDatas[MPoweredNFT.nextSetId] = SetData(name: name, description: description, creator: ownerAddress)
+		}
 
-        var setData = MPoweredNFT.setDatas[setId]
-		setData
+		// Lock the set inside set mapping in the contract
+			pub fun lockSet(setId: UInt64) {
+			
+			pre {
+				//check that the setId exists already
+				MPoweredNFT.setIdExists(setId:setId) == true : "Error - Set Id does not exist"
 
-	}
+			}
+				
+			// get owner address
+			let ownerAddress = self.owner!.address
+			// you can only lock sets that you created
+			assert(ownerAddress == MPoweredNFT.setDatas[setId]!.creator, message: "Error - This is not your Set. You cannot lock this Set.")
+
+			var setData = MPoweredNFT.setDatas[setId]
+			setData
+
+		}
 					
     }
-
-    pub fun setNameExists(name: String): Bool
+	
+	
+	pub fun setNameExists(name: String): Bool
     {
 	//check that the set name exists yet
 		
@@ -738,10 +787,13 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 	return false
     }
 
-
+	
+	/* 
     pub fun minter(): Capability<&Minter> {
         return self.account.getCapability<&Minter>(self.minterPublicPath)
     }
+	*/
+	
 
     pub resource Administrator {
 		// turn public minting on/off
@@ -779,6 +831,10 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 				path: path
 			)
 		}
+		pub fun changeTreasuryAddress(newAddress: Address)
+		{
+			MPoweredNFT.treasuryAddress = newAddress
+		}
 	}
 	
 	init(name: String, description: String, imagePath: String, publicMinting: Bool, ipfsCID: String) 
@@ -812,13 +868,16 @@ pub contract MPoweredNFT : NonFungibleToken, LicensedNFT {
 		self.metadatas = {}
 		self.setDatas = {}
 		
+		//Treasury Address
+		self.treasuryAddress = 0xf8d6e0586b0a20c7
 
 		// Create minter resource and save it to storage		
-        	let minter <- create Minter()
-        	self.account.save(<- minter, to: self.minterStoragePath)
+        let minter <- create Minter()
+    	self.account.save(<- minter, to: self.minterStoragePath)
 
 		// Create a public capability for the minter
-        	self.account.link<&Minter>(self.minterPublicPath, target: self.minterStoragePath)
+        //self.account.link<&Minter>(self.minterPublicPath, target: self.minterStoragePath)
+		//self.account.link<&{MPoweredNFTMinterPublic}>(self.minterPublicPath, target: self.minterStoragePath)
 
 		// Create a collection resource and save it to storage
         	let collection <- MPoweredNFT.createEmptyCollection()
